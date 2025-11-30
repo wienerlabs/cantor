@@ -137,3 +137,41 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.venv/
+venv/
+ENV/
+
+# Rust
+rust/target/
+**/*.rs.bk
+Cargo.lock
+
+# ML artifacts
+*.pt
+*.pth
+*.onnx
+checkpoints/
+runs/
+wandb/
