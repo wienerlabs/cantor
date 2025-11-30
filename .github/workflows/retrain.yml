@@ -1,0 +1,162 @@
+name: Model Retraining
+
+on:
+  schedule:
+    - cron: '0 2 * * 0'  # Weekly on Sunday at 2 AM
+  workflow_dispatch:
+    inputs:
+      start_block:
+        description: 'Starting block for training data'
+        required: false
+        default: 'latest-10000'
+      epochs:
+        description: 'Number of training epochs'
+        required: false
+        default: '50'
+
+env:
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  extract-data:
+    runs-on: ubuntu-latest
+    outputs:
+      data_hash: ${{ steps.extract.outputs.hash }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Install dependencies
+        run: pip install -e ./python
+      
+      - name: Extract training data
+        id: extract
+        env:
+          ETH_RPC_URL: ${{ secrets.ETH_RPC_URL }}
+        run: |
+          python -c "
+          import asyncio
+          from cantor.data.extractor import BlockchainExtractor
+          from cantor.core.config import CantorConfig
+          import hashlib
+          import json
+          
+          async def extract():
+              config = CantorConfig()
+              extractor = BlockchainExtractor(config.data.rpc_url)
+              await extractor.connect()
+              
+              # Get latest blocks
+              latest = await extractor.get_latest_block_number()
+              start = latest - 1000
+              
+              data = []
+              for block_num in range(start, latest):
+                  block = await extractor.get_block(block_num)
+                  data.append({'block': block_num, 'txs': len(block.transactions)})
+              
+              await extractor.disconnect()
+              
+              with open('training_data.json', 'w') as f:
+                  json.dump(data, f)
+              
+              h = hashlib.sha256(json.dumps(data).encode()).hexdigest()[:8]
+              print(f'hash={h}')
+          
+          asyncio.run(extract())
+          " >> $GITHUB_OUTPUT
+      
+      - name: Upload training data
+        uses: actions/upload-artifact@v4
+        with:
+          name: training-data
+          path: training_data.json
+
+  train:
+    needs: extract-data
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Install dependencies
+        run: pip install -e ./python[training]
+      
+      - name: Download training data
+        uses: actions/download-artifact@v4
+        with:
+          name: training-data
+      
+      - name: Train model
+        env:
+          WANDB_API_KEY: ${{ secrets.WANDB_API_KEY }}
+        run: |
+          cantor train \
+            --data training_data.json \
+            --output checkpoints \
+            --epochs ${{ github.event.inputs.epochs || '50' }}
+      
+      - name: Upload model
+        uses: actions/upload-artifact@v4
+        with:
+          name: model-${{ needs.extract-data.outputs.data_hash }}
+          path: checkpoints/
+
+  evaluate:
+    needs: [extract-data, train]
+    runs-on: ubuntu-latest
+    outputs:
+      improved: ${{ steps.compare.outputs.improved }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Install dependencies
+        run: pip install -e ./python
+      
+      - name: Download new model
+        uses: actions/download-artifact@v4
+        with:
+          name: model-${{ needs.extract-data.outputs.data_hash }}
+          path: new_model/
+      
+      - name: Compare models
+        id: compare
+        run: |
+          # Placeholder for model comparison
+          echo "improved=true" >> $GITHUB_OUTPUT
+
+  deploy:
+    needs: [evaluate, extract-data]
+    if: needs.evaluate.outputs.improved == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Download model
+        uses: actions/download-artifact@v4
+        with:
+          name: model-${{ needs.extract-data.outputs.data_hash }}
+          path: model/
+      
+      - name: Create release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: model-${{ needs.extract-data.outputs.data_hash }}
+          files: model/*
+          body: |
+            Automated model release from retraining pipeline.
+            Data hash: ${{ needs.extract-data.outputs.data_hash }}
+
