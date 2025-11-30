@@ -1,4 +1,6 @@
-# CANTOR
+<img width="300" height="300" alt="cantor" src="https://github.com/user-attachments/assets/ed345970-dc2c-47dc-97af-1d98d2fbf217" />
+
+---
 
 Predictive State Compression Through Transaction Pattern Recognition
 
