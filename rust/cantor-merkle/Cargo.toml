@@ -1,0 +1,22 @@
+[package]
+name = "cantor-merkle"
+description = "High-performance Merkle tree implementation for CANTOR"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+cantor-core = { path = "../cantor-core" }
+thiserror.workspace = true
+sha2.workspace = true
+bytes.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+criterion.workspace = true
+
+[[bench]]
+name = "merkle_bench"
+harness = false
+

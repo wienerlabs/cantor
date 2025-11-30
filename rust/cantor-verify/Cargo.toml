@@ -1,0 +1,25 @@
+[package]
+name = "cantor-verify"
+description = "High-performance verification for CANTOR proofs"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+cantor-core = { path = "../cantor-core" }
+cantor-merkle = { path = "../cantor-merkle" }
+cantor-compress = { path = "../cantor-compress" }
+thiserror.workspace = true
+sha2.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+criterion.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+
+[[bench]]
+name = "verify_bench"
+harness = false
+
